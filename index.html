@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>流动性危机 · 现金为王 | 跨资产抛售的底层逻辑</title>
+<meta name="description" content="当流动性突然收紧，为什么黄金、BTC、美股会一起跌？追加保证金机制下的跨资产无差别抛售，与两个阶段的投资逻辑。作者 911" />
+<style>
+/* ============ 设计变量 ============ */
+:root{
+  --bg:#0a0806;
+  --bg-2:#100c07;
+  --bg-3:#161009;
+  --panel:rgba(32,25,15,.55);
+  --panel-2:rgba(20,15,9,.7);
+  --line:rgba(212,175,55,.14);
+  --line-2:rgba(212,175,55,.30);
+  --line-3:rgba(212,175,55,.55);
+  --gold-1:#fbf0c9;
+  --gold-2:#e6c877;
+  --gold-3:#c8a548;
+  --gold-4:#9a7b2c;
+  --gold-5:#6b5220;
+  --txt:#efe7d7;
+  --dim:#aca291;
+  --mute:#79705f;
+  --up:#cf5b45;    /* 上涨 · 红 */
+  --down:#57a883;  /* 下跌 · 绿 */
+  --warn:#e0913f;
+  --serif:'Songti SC','STSong','Noto Serif CJK SC','Source Han Serif SC','SimSun',Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC',sans-serif;
+  --mono:'SF Mono','JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.22,.61,.36,1);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--bg);
+  color:var(--txt);
+  font-family:var(--sans);
+  font-size:16px;
+  line-height:1.85;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+  position:relative;
+}
+/* 全局金色纹理与光晕 */
+body::before{
+  content:"";
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(900px 520px at 78% -6%, rgba(200,165,72,.13), transparent 62%),
+    radial-gradient(760px 460px at 6% 12%, rgba(120,90,30,.10), transparent 60%),
+    radial-gradient(1100px 700px at 50% 108%, rgba(150,115,40,.09), transparent 62%);
+}
+body::after{
+  content:"";
+  position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.22;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+  mix-blend-mode:overlay;
+}
+::selection{background:rgba(200,165,72,.3);color:#fff8e2;}
+
+/* 鼠标跟随金晕 */
+.glow-follow{
+  position:fixed;width:520px;height:520px;left:0;top:0;z-index:2;pointer-events:none;
+  background:radial-gradient(circle, rgba(226,190,110,.10), rgba(200,165,72,.045) 42%, transparent 68%);
+  transform:translate(-50%,-50%);transition:opacity .6s;opacity:0;
+  mix-blend-mode:screen;filter:blur(6px);
+}
+@media (hover:hover){ .glow-follow{opacity:1;} }
+
+/* ============ 顶部导航 ============ */
+.nav{
+  position:fixed;top:0;left:0;right:0;z-index:50;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px clamp(18px,4vw,54px);
+  transition:background .5s var(--ease), backdrop-filter .5s, border-color .5s, padding .5s;
+  border-bottom:1px solid transparent;
+}
+.nav.solid{
+  background:rgba(10,8,6,.82);
+  backdrop-filter:blur(16px) saturate(1.2);
+  border-bottom:1px solid var(--line);
+  padding:12px clamp(18px,4vw,54px);
+}
+.nav-logo{
+  font-family:var(--mono);font-size:12px;letter-spacing:.34em;text-transform:uppercase;
+  color:var(--gold-2);display:flex;align-items:center;gap:10px;white-space:nowrap;
+}
+.nav-logo i{
+  width:7px;height:7px;background:var(--gold-3);border-radius:50%;
+  box-shadow:0 0 12px var(--gold-3);animation:pulseDot 2.6s infinite;
+}
+@keyframes pulseDot{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.35;transform:scale(.7);}}
+.nav-links{display:flex;gap:clamp(12px,2vw,30px);}
+.nav-links a{
+  font-size:12.5px;letter-spacing:.1em;color:var(--dim);text-decoration:none;
+  position:relative;padding:4px 0;transition:color .35s;
+}
+.nav-links a::after{
+  content:"";position:absolute;left:0;bottom:0;height:1px;width:0;
+  background:linear-gradient(90deg,var(--gold-3),var(--gold-1));transition:width .4s var(--ease);
+}
+.nav-links a:hover{color:var(--gold-1);}
+.nav-links a:hover::after{width:100%;}
+@media(max-width:860px){.nav-links{display:none;}}
+
+/* ============ 通用版式 ============ */
+.wrap{position:relative;z-index:3;max-width:1180px;margin:0 auto;padding:0 clamp(18px,4vw,32px);}
+section{position:relative;z-index:3;padding:clamp(70px,9vw,132px) 0;}
+.eyebrow{
+  font-family:var(--mono);font-size:11px;letter-spacing:.34em;text-transform:uppercase;
+  color:var(--gold-3);display:flex;align-items:center;gap:14px;margin-bottom:22px;
+}
+.eyebrow::before{
+  content:"";width:34px;height:1px;background:linear-gradient(90deg,transparent,var(--gold-3));
+}
+h2.title{
+  font-family:var(--serif);font-weight:600;
+  font-size:clamp(27px,3.9vw,45px);line-height:1.32;letter-spacing:.01em;
+  margin-bottom:20px;
+}
+h2.title em{
+  font-style:normal;
+  background:linear-gradient(100deg,var(--gold-3) 0%,var(--gold-1) 30%,#fff8e0 48%,var(--gold-2) 66%,var(--gold-4) 100%);
+  background-size:220% auto;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:shimmer 7s linear infinite;
+}
+@keyframes shimmer{to{background-position:220% center;}}
+.lede{font-size:clamp(15px,1.5vw,17.5px);color:var(--dim);max-width:74ch;line-height:1.92;}
+.lede strong{color:var(--gold-2);font-weight:500;}
+
+/* 滚动入场 */
+.reveal{opacity:0;transform:translateY(30px);transition:opacity 1s var(--ease),transform 1s var(--ease);}
+.reveal.in{opacity:1;transform:none;}
+.reveal[data-d="1"]{transition-delay:.09s;}
+.reveal[data-d="2"]{transition-delay:.18s;}
+.reveal[data-d="3"]{transition-delay:.27s;}
+.reveal[data-d="4"]{transition-delay:.36s;}
+.reveal[data-d="5"]{transition-delay:.45s;}
+.reveal[data-d="6"]{transition-delay:.54s;}
+
+/* 卡片 */
+.card{
+  position:relative;
+  background:linear-gradient(158deg,rgba(40,32,19,.62),rgba(15,12,8,.82));
+  border:1px solid var(--line);border-radius:6px;
+  padding:clamp(20px,2.6vw,32px);
+  overflow:hidden;
+  transition:border-color .5s var(--ease),transform .5s var(--ease),box-shadow .5s var(--ease);
+}
+.card::before{
+  content:"";position:absolute;inset:0;border-radius:6px;pointer-events:none;
+  background:linear-gradient(180deg,rgba(251,240,201,.07),transparent 34%);
+}
+.card::after{
+  content:"";position:absolute;left:0;top:0;width:100%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(230,200,119,.55),transparent);
+  opacity:.5;transition:opacity .5s;
+}
+.card:hover{border-color:var(--line-2);box-shadow:0 22px 60px -28px rgba(0,0,0,.9),0 0 0 1px rgba(200,165,72,.06) inset;}
+.card:hover::after{opacity:1;}
+
+/* ============ HERO ============ */
+.hero{
+  min-height:100svh;display:flex;flex-direction:column;justify-content:center;
+  padding-top:120px;padding-bottom:80px;position:relative;overflow:hidden;
+}
+#field{position:absolute;inset:0;z-index:2;width:100%;height:100%;}
+.hero-veil{
+  position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:radial-gradient(ellipse 78% 62% at 50% 46%, transparent 30%, rgba(10,8,6,.55) 78%, var(--bg) 100%);
+}
+.hero-inner{position:relative;z-index:4;max-width:1180px;margin:0 auto;padding:0 clamp(18px,4vw,32px);width:100%;}
+.hero-tag{
+  display:inline-flex;align-items:center;gap:10px;margin-bottom:34px;
+  padding:7px 16px 7px 12px;border:1px solid var(--line-2);border-radius:100px;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.26em;text-transform:uppercase;
+  color:var(--gold-2);background:rgba(200,165,72,.05);backdrop-filter:blur(6px);
+  opacity:0;animation:fadeUp 1s .15s var(--ease) forwards;
+}
+.hero-tag s{text-decoration:none;color:var(--mute);letter-spacing:.18em;}
+.hero h1{
+  font-family:var(--serif);font-weight:600;
+  font-size:clamp(34px,6.6vw,80px);line-height:1.16;letter-spacing:-.01em;
+  margin-bottom:8px;
+  opacity:0;animation:fadeUp 1.2s .28s var(--ease) forwards;
+}
+.hero h1 .g{
+  background:linear-gradient(96deg,#8a6b23 0%,var(--gold-1) 24%,#fffaea 44%,var(--gold-2) 60%,#a8842f 84%,#7a5e1c 100%);
+  background-size:220% auto;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:shimmer 9s linear infinite;
+}
+.hero h1 .thin{display:block;color:var(--dim);font-size:.52em;letter-spacing:.05em;margin-top:14px;font-weight:400;}
+.hero-sub{
+  margin-top:30px;max-width:60ch;font-size:clamp(14.5px,1.6vw,18px);color:var(--dim);line-height:1.9;
+  opacity:0;animation:fadeUp 1.1s .46s var(--ease) forwards;
+}
+.hero-sub b{color:var(--gold-2);font-weight:500;}
+.hero-kpis{
+  display:flex;flex-wrap:wrap;gap:0;margin-top:clamp(38px,5vw,60px);
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  opacity:0;animation:fadeUp 1.1s .62s var(--ease) forwards;
+}
+.kpi{
+  flex:1 1 170px;padding:22px 26px 22px 0;min-width:150px;
+  border-right:1px solid var(--line);
+}
+.kpi:last-child{border-right:none;}
+.kpi-num{
+  font-family:var(--mono);font-size:clamp(22px,2.6vw,30px);color:var(--gold-1);
+  letter-spacing:.02em;line-height:1.2;display:flex;align-items:baseline;gap:3px;
+}
+.kpi-num u{text-decoration:none;font-size:.52em;color:var(--gold-4);letter-spacing:.1em;}
+.kpi-lbl{font-size:11.5px;letter-spacing:.16em;color:var(--mute);margin-top:9px;text-transform:uppercase;font-family:var(--mono);}
+.scroll-hint{
+  position:absolute;bottom:34px;left:50%;transform:translateX(-50%);z-index:5;
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.32em;color:var(--mute);text-transform:uppercase;
+  opacity:0;animation:fadeIn 1.4s 1.4s forwards;
+}
+.scroll-hint span{width:1px;height:44px;background:linear-gradient(180deg,var(--gold-3),transparent);position:relative;overflow:hidden;}
+.scroll-hint span::after{
+  content:"";position:absolute;top:-44px;left:0;width:1px;height:44px;
+  background:linear-gradient(180deg,transparent,var(--gold-1));animation:drop 2.4s infinite;
+}
+@keyframes drop{0%{top:-44px;}70%,100%{top:44px;}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(26px);}to{opacity:1;transform:none;}}
+@keyframes fadeIn{to{opacity:1;}}
+
+/* ============ 因果链 ============ */
+.chain-list{position:relative;margin-top:56px;padding-left:clamp(30px,5vw,54px);}
+.chain-spine{
+  position:absolute;left:clamp(9px,1.6vw,17px);top:8px;bottom:8px;width:1px;
+  background:linear-gradient(180deg,transparent,var(--line-2) 6%,var(--line-2) 94%,transparent);
+}
+.chain-spine i{
+  position:absolute;left:-2.5px;width:6px;height:6px;border-radius:50%;
+  background:var(--gold-1);box-shadow:0 0 16px 3px rgba(230,200,119,.65);
+  animation:travel 7s linear infinite;
+}
+@keyframes travel{0%{top:0;opacity:0;}8%{opacity:1;}92%{opacity:1;}100%{top:100%;opacity:0;}}
+.chain-item{
+  position:relative;padding:0 0 clamp(30px,4vw,44px) 0;
+}
+.chain-item:last-child{padding-bottom:0;}
+.chain-item .node{
+  position:absolute;left:calc(-1 * clamp(30px,5vw,54px) + clamp(2px,.5vw,10px));
+  top:12px;width:15px;height:15px;border-radius:50%;
+  border:1px solid var(--gold-4);background:var(--bg);
+  display:flex;align-items:center;justify-content:center;
+  transition:border-color .5s,box-shadow .5s,transform .5s;
+}
+.chain-item .node::after{
+  content:"";width:5px;height:5px;border-radius:50%;background:var(--gold-3);
+  transition:background .5s,box-shadow .5s;
+}
+.chain-item.in .node{border-color:var(--gold-2);box-shadow:0 0 0 4px rgba(200,165,72,.08);}
+.chain-item.in .node::after{background:var(--gold-1);box-shadow:0 0 12px var(--gold-2);}
+.chain-head{
+  display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:7px;
+}
+.chain-idx{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;color:var(--gold-4);
+}
+.chain-h{font-family:var(--serif);font-size:clamp(17px,2vw,22px);color:var(--gold-1);font-weight:600;letter-spacing:.02em;}
+.chain-p{color:var(--dim);font-size:14.8px;max-width:70ch;line-height:1.9;}
+.chain-p b{color:var(--gold-2);font-weight:500;}
+.chain-loop{
+  margin-top:44px;margin-left:clamp(30px,5vw,54px);
+  display:inline-flex;align-items:center;gap:14px;
+  border:1px dashed var(--line-2);border-radius:100px;padding:12px 24px 12px 16px;
+  font-size:13px;color:var(--gold-2);background:rgba(200,165,72,.04);
+}
+.chain-loop svg{animation:spin 9s linear infinite;flex:none;}
+@keyframes spin{to{transform:rotate(-360deg);}}
+
+/* ============ 现金需求 ============ */
+.why-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(16px,2.4vw,30px);margin-top:52px;}
+@media(max-width:820px){.why-grid{grid-template-columns:1fr;}}
+.cash-big{
+  font-family:var(--serif);font-size:clamp(30px,4.4vw,52px);line-height:1.28;
+  color:var(--gold-1);margin:0 0 18px;
+}
+.cash-big small{display:block;font-size:.34em;font-family:var(--mono);letter-spacing:.24em;color:var(--gold-4);margin-bottom:14px;text-transform:uppercase;}
+.balance{display:flex;flex-direction:column;gap:14px;}
+.bal-row{display:flex;align-items:center;gap:16px;}
+.bal-name{width:74px;flex:none;font-size:13.5px;color:var(--dim);letter-spacing:.06em;}
+.bal-track{flex:1;height:9px;background:rgba(255,255,255,.045);border-radius:100px;overflow:hidden;position:relative;}
+.bal-fill{
+  height:100%;width:0;border-radius:100px;
+  background:linear-gradient(90deg,var(--gold-5),var(--gold-2));
+  transition:width 1.4s var(--ease);
+  box-shadow:0 0 18px rgba(200,165,72,.28);
+}
+.bal-val{width:78px;flex:none;text-align:right;font-family:var(--mono);font-size:13px;color:var(--gold-2);}
+.bal-total{
+  display:flex;justify-content:space-between;align-items:baseline;
+  margin-top:22px;padding-top:18px;border-top:1px solid var(--line);
+  font-family:var(--mono);font-size:12px;letter-spacing:.14em;color:var(--mute);text-transform:uppercase;
+}
+.bal-total b{color:var(--gold-1);font-size:20px;letter-spacing:.02em;}
+.gap-note{
+  margin-top:24px;padding:18px 20px;border-left:2px solid var(--warn);
+  background:linear-gradient(90deg,rgba(224,145,63,.10),transparent);
+  font-size:14px;color:#e7cdae;border-radius:0 4px 4px 0;
+}
+.gap-note b{color:var(--warn);}
+
+/* ============ 保证金模拟器 ============ */
+.sim{
+  margin-top:54px;border:1px solid var(--line);border-radius:8px;overflow:hidden;
+  background:linear-gradient(160deg,rgba(30,24,14,.7),rgba(12,10,7,.9));
+}
+.sim-head{
+  display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
+  padding:18px 26px;border-bottom:1px solid var(--line);
+  background:linear-gradient(90deg,rgba(200,165,72,.07),transparent 60%);
+}
+.sim-head h3{font-family:var(--serif);font-size:16px;letter-spacing:.06em;color:var(--gold-1);font-weight:600;}
+.sim-head .tag{
+  font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--gold-4);border:1px solid var(--line-2);padding:4px 10px;border-radius:100px;
+}
+.sim-body{display:grid;grid-template-columns:1.35fr 1fr;gap:0;}
+@media(max-width:880px){.sim-body{grid-template-columns:1fr;}}
+.sim-left{padding:clamp(20px,2.6vw,30px);border-right:1px solid var(--line);}
+@media(max-width:880px){.sim-left{border-right:none;border-bottom:1px solid var(--line);}}
+.asset-row{margin-bottom:18px;position:relative;}
+.asset-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;font-size:13.5px;}
+.asset-nm{color:var(--txt);letter-spacing:.05em;display:flex;align-items:center;gap:9px;}
+.asset-nm em{
+  font-style:normal;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;
+  color:var(--gold-4);border:1px solid var(--line);padding:1px 6px;border-radius:3px;
+}
+.asset-amt{font-family:var(--mono);color:var(--gold-2);font-size:13px;transition:color .4s;}
+.asset-bar{
+  height:26px;background:rgba(255,255,255,.035);border-radius:3px;position:relative;overflow:hidden;
+}
+.asset-bar .fill{
+  position:absolute;inset:0;width:0;
+  background:linear-gradient(90deg,rgba(154,123,44,.55),rgba(230,200,119,.85));
+  transition:width 1.2s var(--ease),filter .4s;
+}
+.asset-bar .sold{
+  position:absolute;top:0;bottom:0;left:0;width:0;
+  background:repeating-linear-gradient(135deg,rgba(207,91,69,.5) 0 6px,rgba(120,50,38,.55) 6px 12px);
+  transition:width .9s var(--ease);
+  border-right:1px solid rgba(255,160,130,.6);
+}
+.asset-bar .sold.on{box-shadow:inset 0 0 22px rgba(0,0,0,.4);}
+.sold-tag{
+  position:absolute;right:8px;top:50%;transform:translateY(-50%);
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:#ffd9c9;
+  opacity:0;transition:opacity .4s;text-transform:uppercase;pointer-events:none;
+}
+.sold-tag.on{opacity:1;}
+
+.sim-right{padding:clamp(20px,2.6vw,30px);display:flex;flex-direction:column;gap:22px;}
+.ctrl-lbl{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;letter-spacing:.14em;color:var(--mute);text-transform:uppercase;font-family:var(--mono);}
+.ctrl-lbl b{font-size:20px;color:var(--warn);letter-spacing:.02em;}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:2px;margin-top:16px;
+  background:linear-gradient(90deg,var(--gold-3) 0%,var(--gold-5) 100%);
+  outline:none;border-radius:2px;cursor:grab;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:18px;height:18px;border-radius:50%;
+  background:radial-gradient(circle at 34% 30%,#fff8e0,var(--gold-2) 46%,var(--gold-4));
+  border:none;box-shadow:0 0 0 4px rgba(200,165,72,.13),0 4px 14px rgba(0,0,0,.6);
+  cursor:grab;transition:transform .2s;
+}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);}
+input[type=range]::-moz-range-thumb{
+  width:18px;height:18px;border-radius:50%;border:none;
+  background:radial-gradient(circle at 34% 30%,#fff8e0,var(--gold-2) 46%,var(--gold-4));
+}
+.need-box{
+  border:1px solid var(--line);border-radius:6px;padding:18px 20px;
+  background:radial-gradient(120% 100% at 100% 0,rgba(200,165,72,.09),transparent 60%);
+}
+.need-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
+.need-row span{font-size:12px;color:var(--mute);letter-spacing:.1em;}
+.need-row b{font-family:var(--mono);font-size:clamp(22px,2.6vw,30px);color:var(--gold-1);letter-spacing:.01em;}
+.need-row b.hot{color:var(--warn);text-shadow:0 0 24px rgba(224,145,63,.45);}
+.need-sub{font-size:12.5px;color:var(--dim);line-height:1.75;border-top:1px solid var(--line);padding-top:12px;margin-top:6px;}
+.need-sub b{color:var(--gold-2);font-family:var(--mono);}
+.sim-btns{display:flex;gap:10px;flex-wrap:wrap;}
+.btn{
+  font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  padding:13px 22px;border-radius:3px;border:1px solid var(--line-3);
+  background:transparent;color:var(--gold-1);cursor:pointer;position:relative;overflow:hidden;
+  transition:color .4s,border-color .4s,transform .2s;
+}
+.btn::before{
+  content:"";position:absolute;inset:0;background:linear-gradient(100deg,var(--gold-4),var(--gold-1),var(--gold-3));
+  transform:translateY(101%);transition:transform .45s var(--ease);z-index:-1;
+}
+.btn span{position:relative;z-index:1;}
+.btn:hover{color:#14100a;border-color:var(--gold-1);}
+.btn:hover::before{transform:translateY(0);}
+.btn:active{transform:scale(.98);}
+.btn.ghost{border-color:var(--line);color:var(--dim);}
+.btn.ghost:hover{color:var(--gold-1);border-color:var(--line-2);}
+.btn.ghost::before{display:none;}
+.sim-log{
+  font-family:var(--mono);font-size:11.5px;line-height:1.9;color:var(--gold-4);
+  border-top:1px solid var(--line);padding-top:14px;min-height:1px;
+}
+.sim-log div{opacity:0;transform:translateX(-6px);animation:logIn .5s var(--ease) forwards;}
+@keyframes logIn{to{opacity:1;transform:none;}}
+.sim-log i{color:var(--warn);font-style:normal;}
+
+/* ============ 资产表现 ============ */
+.tbl-wrap{margin-top:48px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:rgba(14,11,8,.6);}
+table{width:100%;border-collapse:collapse;font-size:14px;}
+thead th{
+  text-align:left;padding:16px 18px;font-family:var(--mono);font-size:10.5px;
+  letter-spacing:.2em;text-transform:uppercase;color:var(--gold-4);font-weight:400;
+  border-bottom:1px solid var(--line-2);background:rgba(200,165,72,.045);white-space:nowrap;
+}
+tbody td{padding:17px 18px;border-bottom:1px solid rgba(212,175,55,.07);color:var(--dim);vertical-align:top;}
+tbody tr{transition:background .35s;}
+tbody tr:hover{background:rgba(200,165,72,.055);}
+tbody tr:last-child td{border-bottom:none;}
+td.name{color:var(--txt);font-weight:500;white-space:nowrap;letter-spacing:.04em;}
+td.name em{display:block;font-style:normal;font-size:11px;color:var(--mute);font-family:var(--mono);letter-spacing:.1em;margin-top:3px;}
+.chip{
+  display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11.5px;
+  padding:3px 9px;border-radius:3px;white-space:nowrap;letter-spacing:.04em;
+}
+.chip.dn{color:var(--down);background:rgba(87,168,131,.10);border:1px solid rgba(87,168,131,.28);}
+.chip.up{color:var(--up);background:rgba(207,91,69,.10);border:1px solid rgba(207,91,69,.3);}
+.chip.mx{color:var(--gold-2);background:rgba(200,165,72,.10);border:1px solid rgba(200,165,72,.3);}
+.chip::before{content:"●";font-size:7px;line-height:1;}
+@media(max-width:760px){
+  table{font-size:13px;}
+  thead th,tbody td{padding:13px 12px;}
+  .hide-sm{display:none;}
+}
+
+/* ============ 两阶段 ============ */
+.phase-switch{display:flex;gap:10px;margin:44px 0 0;flex-wrap:wrap;}
+.phase-tab{
+  flex:1 1 240px;text-align:left;padding:20px 24px;border-radius:6px;cursor:pointer;
+  border:1px solid var(--line);background:rgba(20,16,10,.5);
+  transition:all .45s var(--ease);position:relative;overflow:hidden;
+}
+.phase-tab .pt-n{font-family:var(--mono);font-size:10px;letter-spacing:.24em;color:var(--gold-4);text-transform:uppercase;}
+.phase-tab .pt-t{font-family:var(--serif);font-size:19px;color:var(--dim);margin-top:6px;letter-spacing:.04em;transition:color .4s;}
+.phase-tab.on{border-color:var(--line-3);background:linear-gradient(150deg,rgba(200,165,72,.13),rgba(20,16,10,.7));}
+.phase-tab.on .pt-t{color:var(--gold-1);}
+.phase-tab.on::after{
+  content:"";position:absolute;left:0;bottom:0;height:2px;width:100%;
+  background:linear-gradient(90deg,var(--gold-4),var(--gold-1),var(--gold-4));
+}
+.phase-panel{
+  margin-top:26px;border:1px solid var(--line);border-radius:8px;padding:clamp(22px,3vw,38px);
+  background:linear-gradient(160deg,rgba(34,27,16,.6),rgba(12,10,7,.85));
+  position:relative;overflow:hidden;
+}
+.phase-panel::before{
+  content:"";position:absolute;top:-40%;right:-10%;width:420px;height:420px;border-radius:50%;
+  background:radial-gradient(circle,rgba(200,165,72,.12),transparent 66%);pointer-events:none;
+}
+.pp-title{font-family:var(--serif);font-size:clamp(20px,2.4vw,27px);color:var(--gold-1);margin-bottom:14px;letter-spacing:.03em;}
+.pp-desc{color:var(--dim);font-size:15px;max-width:72ch;line-height:1.92;margin-bottom:26px;}
+.pp-desc b{color:var(--gold-2);font-weight:500;}
+.pp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;}
+.pp-item{
+  padding:16px 18px;border:1px solid var(--line);border-radius:5px;background:rgba(255,255,255,.018);
+}
+.pp-item .k{font-size:11px;letter-spacing:.14em;color:var(--mute);font-family:var(--mono);text-transform:uppercase;margin-bottom:7px;}
+.pp-item .v{font-size:14.5px;color:var(--txt);line-height:1.6;}
+.pp-item .v.down{color:var(--down);}
+.pp-item .v.up{color:var(--up);}
+.pp-item .v.gold{color:var(--gold-2);}
+.fade-swap{animation:fadeSwap .6s var(--ease);}
+@keyframes fadeSwap{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+
+/* ============ 延展：加密 / 美股 ============ */
+.ext-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(16px,2.4vw,28px);margin-top:52px;}
+@media(max-width:900px){.ext-grid{grid-template-columns:1fr;}}
+.ext-card{padding:clamp(24px,3vw,36px);}
+.ext-head{display:flex;align-items:center;gap:14px;margin-bottom:8px;}
+.ext-ico{
+  width:38px;height:38px;flex:none;border-radius:8px;display:grid;place-items:center;
+  border:1px solid var(--line-2);background:radial-gradient(circle at 30% 25%,rgba(230,200,119,.16),transparent 70%);
+  color:var(--gold-2);
+}
+.ext-title{font-family:var(--serif);font-size:20px;color:var(--gold-1);letter-spacing:.05em;}
+.ext-sub{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--gold-4);text-transform:uppercase;margin-top:2px;}
+.ext-body{margin-top:24px;display:flex;flex-direction:column;gap:0;}
+.ext-row{
+  display:flex;gap:14px;padding:15px 0;border-bottom:1px dashed rgba(212,175,55,.12);
+  transition:padding-left .4s var(--ease);
+}
+.ext-row:last-child{border-bottom:none;}
+.ext-row:hover{padding-left:6px;}
+.ext-row .dot{
+  width:5px;height:5px;border-radius:50%;background:var(--gold-4);flex:none;margin-top:11px;
+  transition:background .4s,box-shadow .4s;
+}
+.ext-row:hover .dot{background:var(--gold-1);box-shadow:0 0 12px var(--gold-2);}
+.ext-row .txt{font-size:14.3px;color:var(--dim);line-height:1.85;}
+.ext-row .txt b{color:var(--gold-2);font-weight:500;}
+.ext-row .txt i{
+  font-style:normal;font-family:var(--mono);font-size:11.5px;color:var(--gold-4);
+  border:1px solid var(--line);padding:0 5px;border-radius:3px;margin:0 2px;
+}
+
+/* ============ 仪表盘 ============ */
+.mon-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(238px,1fr));gap:16px;margin-top:52px;}
+.mon{
+  padding:22px 22px 18px;border:1px solid var(--line);border-radius:6px;
+  background:linear-gradient(165deg,rgba(28,22,13,.72),rgba(11,9,6,.85));
+  position:relative;overflow:hidden;transition:border-color .45s,transform .45s;
+}
+.mon:hover{border-color:var(--line-2);transform:translateY(-3px);}
+.mon-k{font-size:11.5px;letter-spacing:.1em;color:var(--mute);font-family:var(--mono);text-transform:uppercase;display:flex;justify-content:space-between;gap:8px;}
+.mon-v{font-family:var(--mono);font-size:26px;color:var(--gold-1);margin:12px 0 2px;letter-spacing:.01em;line-height:1.2;}
+.mon-v u{text-decoration:none;font-size:.48em;color:var(--gold-4);margin-left:4px;}
+.mon-d{font-size:12.5px;color:var(--dim);line-height:1.7;margin-top:8px;}
+.mon-d b{color:var(--warn);font-weight:500;}
+.mon-spark{position:absolute;right:0;bottom:0;left:0;height:44px;opacity:.55;pointer-events:none;}
+.mon-spark path{fill:none;stroke:url(#gspark);stroke-width:1.4;stroke-dasharray:600;stroke-dashoffset:600;transition:stroke-dashoffset 2.4s var(--ease);}
+.mon.in .mon-spark path{stroke-dashoffset:0;}
+.mon-note{margin-top:22px;font-size:12px;color:var(--mute);font-family:var(--mono);letter-spacing:.08em;}
+
+/* ============ 决策框架 ============ */
+.fw-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(16px,2.4vw,26px);margin-top:52px;}
+@media(max-width:860px){.fw-grid{grid-template-columns:1fr;}}
+.fw{padding:clamp(24px,3vw,34px);border-radius:8px;border:1px solid var(--line);position:relative;overflow:hidden;}
+.fw.bad{background:linear-gradient(165deg,rgba(60,26,20,.45),rgba(14,10,8,.9));border-color:rgba(207,91,69,.24);}
+.fw.ok{background:linear-gradient(165deg,rgba(20,48,38,.42),rgba(12,12,10,.9));border-color:rgba(87,168,131,.24);}
+.fw-h{font-family:var(--serif);font-size:clamp(19px,2.2vw,24px);margin-bottom:6px;letter-spacing:.04em;}
+.fw.bad .fw-h{color:#e6a196;}
+.fw.ok .fw-h{color:#95ccb4;}
+.fw-sub{font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;color:var(--mute);text-transform:uppercase;margin-bottom:24px;}
+.fw ul{list-style:none;display:flex;flex-direction:column;gap:15px;}
+.fw li{display:flex;gap:12px;font-size:14.3px;color:var(--dim);line-height:1.8;}
+.fw li .mk{
+  flex:none;width:16px;height:16px;border-radius:3px;margin-top:5px;
+  display:grid;place-items:center;font-size:10px;font-family:var(--mono);
+}
+.fw.bad li .mk{border:1px solid rgba(207,91,69,.45);color:#e6a196;}
+.fw.ok li .mk{border:1px solid rgba(87,168,131,.45);color:#95ccb4;}
+.fw li b{color:var(--txt);font-weight:500;}
+.fw-foot{
+  margin-top:26px;padding-top:18px;border-top:1px solid rgba(255,255,255,.07);
+  font-size:13px;line-height:1.8;
+}
+.fw.bad .fw-foot{color:#c08d80;}
+.fw.ok .fw-foot{color:#8ab8a3;}
+
+/* ============ 引用 ============ */
+.quote-sec{padding:clamp(80px,11vw,150px) 0;position:relative;text-align:center;}
+.quote-sec::before{
+  content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(760px,92vw);height:min(760px,92vw);border-radius:50%;
+  background:radial-gradient(circle,rgba(200,165,72,.10),transparent 62%);pointer-events:none;
+}
+.quote-mark{font-family:var(--serif);font-size:90px;line-height:.4;color:var(--gold-5);margin-bottom:34px;display:block;}
+blockquote{
+  font-family:var(--serif);font-size:clamp(21px,3.4vw,38px);line-height:1.62;
+  color:var(--gold-1);max-width:24ch;margin:0 auto;letter-spacing:.02em;position:relative;z-index:2;
+}
+blockquote em{
+  font-style:normal;
+  background:linear-gradient(100deg,var(--gold-2),#fff8e0,var(--gold-3));
+  background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:shimmer 6s linear infinite;
+}
+.quote-by{
+  margin-top:36px;font-family:var(--mono);font-size:11px;letter-spacing:.3em;
+  color:var(--gold-4);text-transform:uppercase;
+}
+
+/* ============ 页脚 ============ */
+footer{
+  position:relative;z-index:3;border-top:1px solid var(--line);
+  padding:clamp(46px,6vw,74px) 0 44px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.5));
+}
+.foot-top{display:flex;justify-content:space-between;gap:32px;flex-wrap:wrap;align-items:flex-end;}
+.foot-author{
+  font-family:var(--serif);font-size:clamp(30px,5vw,54px);line-height:1;
+  background:linear-gradient(100deg,var(--gold-4),var(--gold-1),var(--gold-3));
+  background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:shimmer 8s linear infinite;letter-spacing:.06em;
+}
+.foot-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.3em;color:var(--mute);text-transform:uppercase;margin-bottom:14px;}
+.foot-meta{font-size:12.5px;color:var(--mute);line-height:1.9;max-width:52ch;text-align:right;}
+@media(max-width:700px){.foot-meta{text-align:left;}}
+.foot-div{height:1px;background:linear-gradient(90deg,transparent,var(--line-2),transparent);margin:44px 0 24px;}
+.foot-bottom{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;color:#4d4639;text-transform:uppercase;}
+
+/* 进度条 */
+.progress{position:fixed;top:0;left:0;height:2px;width:0;z-index:60;background:linear-gradient(90deg,var(--gold-4),var(--gold-1));box-shadow:0 0 12px rgba(230,200,119,.5);}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;}
+  .reveal{opacity:1;transform:none;}
+}
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<div class="glow-follow" id="glow"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="gspark" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#6b5220" stop-opacity="0"/>
+      <stop offset="30%" stop-color="#9a7b2c" stop-opacity=".7"/>
+      <stop offset="100%" stop-color="#fbf0c9" stop-opacity=".95"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<nav class="nav" id="nav">
+  <div class="nav-logo"><i></i>Liquidity&nbsp;·&nbsp;911</div>
+  <div class="nav-links">
+    <a href="#chain">传导链</a>
+    <a href="#why">现金为王</a>
+    <a href="#sim">追保模拟</a>
+    <a href="#assets">资产表现</a>
+    <a href="#phases">两个阶段</a>
+    <a href="#extend">加密·美股</a>
+    <a href="#monitor">监测指标</a>
+    <a href="#framework">决策框架</a>
+  </div>
+</nav>
+
+<!-- ================= HERO ================= -->
+<header class="hero">
+  <canvas id="field"></canvas>
+  <div class="hero-veil"></div>
+  <div class="hero-inner">
+    <div class="hero-tag">Margin Call <s>/</s> Cross-Asset Liquidation</div>
+    <h1>
+      <span class="g">资产因为缺钱而下跌</span>
+      <span class="thin">而不是因为资产本身变差而下跌</span>
+    </h1>
+    <p class="hero-sub">
+      流动性突然收紧时，最先崩的不是估值模型，而是<b>保证金账户</b>。
+      抵押品缩水、折扣率上调、追保通知到期——机构被迫卖出一切「卖得掉」的东西，
+      于是股票、债券、黄金、BTC 同时承压。<b>这不是基本面事件，这是一场现金争夺战。</b>
+    </p>
+    <div class="hero-kpis">
+      <div class="kpi">
+        <div class="kpi-num"><span data-count="30">0</span><u>M USD</u></div>
+        <div class="kpi-lbl">追加保证金缺口</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-num"><span data-count="4">0</span><u>CLASS</u></div>
+        <div class="kpi-lbl">被无差别抛售的资产</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-num"><span data-count="75">0</span><u>%</u></div>
+        <div class="kpi-lbl">极端折价下的变现比例</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-num"><span data-count="2">0</span><u>PHASE</u></div>
+        <div class="kpi-lbl">现金为王 → 流动性释放</div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-hint"><span></span>Scroll</div>
+</header>
+
+<!-- ================= 传导链 ================= -->
+<section id="chain">
+  <div class="wrap">
+    <div class="eyebrow reveal">01 / Transmission</div>
+    <h2 class="title reveal" data-d="1">一条自我强化的<em>死亡螺旋</em></h2>
+    <p class="lede reveal" data-d="2">
+      流动性危机不是一次性的价格下跌，而是一个<strong>正反馈回路</strong>：
+      下跌制造追保，追保制造卖出，卖出制造更深的下跌。
+      理解这条链条，比预测任何一个价格点位都重要。
+    </p>
+
+    <div class="chain-list">
+      <div class="chain-spine"><i></i></div>
+
+      <div class="chain-item reveal">
+        <div class="node"></div>
+        <div class="chain-head"><span class="chain-idx">01</span><span class="chain-h">流动性突然收紧</span></div>
+        <p class="chain-p">
+          融资难度上升、短期资金成本跳升、资金净流出。最先出现裂缝的往往不是股市，而是
+          <b>回购市场与短端利率</b>——它是整个金融体系的"水管"。
+        </p>
+      </div>
+
+      <div class="chain-item reveal" data-d="1">
+        <div class="node"></div>
+        <div class="chain-head"><span class="chain-idx">02</span><span class="chain-h">杠杆账户承压</span></div>
+        <p class="chain-p">
+          两件事同时发生：<b>抵押品市值缩水</b>，以及融资方为自保而<b>上调折扣率（haircut）</b>。
+          抵押品还是那些抵押品，但能借到的钱变少了——可用保证金被动蒸发。
+        </p>
+      </div>
+
+      <div class="chain-item reveal" data-d="2">
+        <div class="node"></div>
+        <div class="chain-head"><span class="chain-idx">03</span><span class="chain-h">保证金不足 · 追保通知</span></div>
+        <p class="chain-p">
+          Margin Call 只有两个选项：<b>限时补入现金</b>，或<b>自行减仓</b>。
+          谁的现金在别处锁着、谁就只剩减仓一条路。这是「被迫卖出」的起点。
+        </p>
+      </div>
+
+      <div class="chain-item reveal" data-d="3">
+        <div class="node"></div>
+        <div class="chain-head"><span class="chain-idx">04</span><span class="chain-h">卖出「最好卖」的资产</span></div>
+        <p class="chain-p">
+          注意：不是卖最差的，而是卖<b>最容易变现的</b>。大盘股、国债、黄金、BTC——
+          恰恰因为流动性好，才成为第一批提款机。<b>优质资产被无差别抛售。</b>
+        </p>
+      </div>
+
+      <div class="chain-item reveal" data-d="4">
+        <div class="node"></div>
+        <div class="chain-head"><span class="chain-idx">05</span><span class="chain-h">价格进一步下跌</span></div>
+        <p class="chain-p">
+          集中卖单打穿报价深度，滑点扩大、买卖价差走阔。同样的卖单，在流动性危机中打出
+          <b>数倍于平时的价格冲击</b>——这是市场流动性（market liquidity）的坍缩。
+        </p>
+      </div>
+
+      <div class="chain-item reveal" data-d="5">
+        <div class="node"></div>
+        <div class="chain-head"><span class="chain-idx">06</span><span class="chain-h">抵押品再缩水 · 新一轮追保</span></div>
+        <p class="chain-p">
+          回路闭合。这个循环不会自己停下来，只有两种结局：<b>杠杆被彻底清算干净</b>，
+          或者<b>外部流动性注入</b>（央行、财政、或者一位愿意接盘的买家）。
+        </p>
+      </div>
+    </div>
+
+    <div class="chain-loop reveal">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+        <path d="M21 12a9 9 0 1 1-3.5-7.1"/><path d="M21 3v6h-6"/>
+      </svg>
+      自我强化回路 · 直到杠杆出清或流动性回归
+    </div>
+  </div>
+</section>
+
+<!-- ================= 现金为王 ================= -->
+<section id="why">
+  <div class="wrap">
+    <div class="eyebrow reveal">02 / Cash Is King</div>
+    <h2 class="title reveal" data-d="1">他需要的不是资产，<em>是现金</em></h2>
+    <p class="lede reveal" data-d="2">
+      市场常问：「黄金不是避险资产吗？为什么危机里也跌？」
+      答案很朴素：<strong>避险是长期诉求，追保是当天到期。</strong>
+      当账户必须在 T+1 之前交出现金，任何资产——无论多优质——都只是变现工具。
+    </p>
+
+    <div class="why-grid">
+      <div class="card reveal" data-d="2">
+        <p class="cash-big"><small>A Real Balance Sheet</small>一个机构的<br>四类持仓</p>
+        <p class="lede" style="font-size:14.6px">
+          假设一家机构持有 1 亿美元的多元化资产，自认为分散得很好：
+          美股、黄金、BTC、债券各司其职，理论上相关性很低。
+        </p>
+        <div class="gap-note">
+          直到某个早晨，它收到一份 <b>3000 万美元</b>的追加保证金通知。
+          分散配置在这一刻<strong style="color:#e7cdae">完全失效</strong>——因为它需要的是同一种东西：现金。
+        </div>
+      </div>
+
+      <div class="card reveal" data-d="3">
+        <div class="balance" id="balanceBars">
+          <div class="bal-row"><div class="bal-name">美股</div><div class="bal-track"><div class="bal-fill" data-w="100"></div></div><div class="bal-val">$50M</div></div>
+          <div class="bal-row"><div class="bal-name">债券</div><div class="bal-track"><div class="bal-fill" data-w="40"></div></div><div class="bal-val">$20M</div></div>
+          <div class="bal-row"><div class="bal-name">黄金</div><div class="bal-track"><div class="bal-fill" data-w="40"></div></div><div class="bal-val">$20M</div></div>
+          <div class="bal-row"><div class="bal-name">BTC</div><div class="bal-track"><div class="bal-fill" data-w="20"></div></div><div class="bal-val">$10M</div></div>
+        </div>
+        <div class="bal-total"><span>Total AUM</span><b>$100M</b></div>
+        <div class="bal-total" style="border:none;padding-top:10px;margin-top:0">
+          <span>Margin Gap</span><b style="color:var(--warn)">−$30M</b>
+        </div>
+      </div>
+    </div>
+
+    <div class="card reveal" data-d="3" style="margin-top:26px">
+      <div class="ext-head">
+        <div class="ext-ico">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <div>
+          <div class="ext-title">它的真实决策顺序</div>
+          <div class="ext-sub">Liquidation Priority</div>
+        </div>
+      </div>
+      <div class="ext-body">
+        <div class="ext-row"><div class="dot"></div><div class="txt">
+          <b>第一顺位：BTC。</b>7×24 小时交易、深度足够、周末也能卖。<i>24/7</i> 意味着它永远是最快的那台提款机。
+        </div></div>
+        <div class="ext-row"><div class="dot"></div><div class="txt">
+          <b>第二顺位：美股大盘股。</b>市场深度最好，几千万美元的卖单可以当天消化，但会忍受价格冲击的成本。
+        </div></div>
+        <div class="ext-row"><div class="dot"></div><div class="txt">
+          <b>第三顺位：债券。</b>本是抵押品本身，但危机中做市商库存收缩，抛售会推高收益率、恶化自身抵押品估值。
+        </div></div>
+        <div class="ext-row"><div class="dot"></div><div class="txt">
+          <b>第四顺位：黄金。</b>心理上最不想卖，但它是<b>最纯粹的流动性</b>——这正是危机中金价"先跌后涨"的原因。
+        </div></div>
+        <div class="ext-row"><div class="dot"></div><div class="txt">
+          <b>唯一不卖的：现金。</b>而现金恰恰是它唯一需要的东西。这就是全部的荒诞之处。
+        </div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 模拟器 ================= -->
+<section id="sim" style="padding-top:0">
+  <div class="wrap">
+    <div class="eyebrow reveal">03 / Margin Call Simulator</div>
+    <h2 class="title reveal" data-d="1">越跌越卖，越卖越跌</h2>
+    <p class="lede reveal" data-d="2">
+      拖动滑块，改变市场当前的<strong>变现折价</strong>。你会发现一个残酷的事实：
+      折价每上升一点，需要变卖的资产规模就以非线性速度膨胀——
+      而这笔新增卖压，又会继续推高折价。
+    </p>
+
+    <div class="sim reveal" data-d="2">
+      <div class="sim-head">
+        <h3>机构资产负债表 · 追保处置推演</h3>
+        <div class="tag">Illustrative Model</div>
+      </div>
+      <div class="sim-body">
+        <div class="sim-left" id="assetList">
+          <div class="asset-row" data-key="btc" data-v="10">
+            <div class="asset-top"><div class="asset-nm">BTC<em>24/7</em></div><div class="asset-amt">$10M</div></div>
+            <div class="asset-bar"><div class="fill"></div><div class="sold"></div><div class="sold-tag">Sold</div></div>
+          </div>
+          <div class="asset-row" data-key="us" data-v="50">
+            <div class="asset-top"><div class="asset-nm">美股<em>Depth</em></div><div class="asset-amt">$50M</div></div>
+            <div class="asset-bar"><div class="fill"></div><div class="sold"></div><div class="sold-tag">Sold</div></div>
+          </div>
+          <div class="asset-row" data-key="bond" data-v="20">
+            <div class="asset-top"><div class="asset-nm">债券<em>Collateral</em></div><div class="asset-amt">$20M</div></div>
+            <div class="asset-bar"><div class="fill"></div><div class="sold"></div><div class="sold-tag">Sold</div></div>
+          </div>
+          <div class="asset-row" data-key="gold" data-v="20">
+            <div class="asset-top"><div class="asset-nm">黄金<em>Last Resort</em></div><div class="asset-amt">$20M</div></div>
+            <div class="asset-bar"><div class="fill"></div><div class="sold"></div><div class="sold-tag">Sold</div></div>
+          </div>
+          <div class="sim-log" id="simLog"><div>// 等待触发…</div></div>
+        </div>
+
+        <div class="sim-right">
+          <div>
+            <div class="ctrl-lbl"><span>变现折价率 Haircut</span><b id="hVal">0%</b></div>
+            <input type="range" id="haircut" min="0" max="60" value="0" step="1" />
+          </div>
+          <div class="need-box">
+            <div class="need-row"><span>需变卖的账面规模</span><b id="needVal">$30M</b></div>
+            <div class="need-sub">
+              目标现金 <b>$30M</b> ÷ (1 − 折价) =
+              <b id="needCalc">$30.0M</b><br />
+              占初始资产 <b id="needPct">30%</b>
+            </div>
+          </div>
+          <div class="sim-btns">
+            <button class="btn" id="btnCascade"><span>模拟连锁清算</span></button>
+            <button class="btn ghost" id="btnReset"><span>重置</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="mon-note reveal" data-d="1">
+      ※ 模型为教学用途的简化推演：固定缺口 $30M、固定变现顺序、折价对所有资产一致。真实市场的差异在于每类资产的深度与折价各不相同。
+    </p>
+  </div>
+</section>
+
+<!-- ================= 资产表现 ================= -->
+<section id="assets" style="padding-top:0">
+  <div class="wrap">
+    <div class="eyebrow reveal">04 / Asset Behavior</div>
+    <h2 class="title reveal" data-d="1">同一个危机，<em>不同的剧本</em></h2>
+    <p class="lede reveal" data-d="2">
+      所有资产在第一时间都可能下跌，但它们的<strong>下跌原因不同</strong>，
+      因此<strong>修复顺序也不同</strong>。这张表是整个逻辑里最实用的部分。
+    </p>
+
+    <div class="tbl-wrap reveal" data-d="2">
+      <table>
+        <thead>
+          <tr>
+            <th>资产</th>
+            <th>危机初期</th>
+            <th class="hide-sm">冲击中期</th>
+            <th>流动性释放后</th>
+            <th class="hide-sm">核心机制</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="name">美股<em>US Equity</em></td>
+            <td><span class="chip dn">↓ 下跌</span></td>
+            <td class="hide-sm"><span class="chip dn">↓ 波动放大</span></td>
+            <td><span class="chip up">↑ 率先反弹</span></td>
+            <td class="hide-sm">融资盘平仓、做市商缩表、波动率目标与 CTA 机械减仓</td>
+          </tr>
+          <tr>
+            <td class="name">BTC<em>Crypto</em></td>
+            <td><span class="chip dn">↓ 下跌</span></td>
+            <td class="hide-sm"><span class="chip dn">↓ 清算瀑布</span></td>
+            <td><span class="chip up">↑ 高 Beta 修复</span></td>
+            <td class="hide-sm">永续强平、链上借贷清算、24/7 无熔断、深度最薄</td>
+          </tr>
+          <tr>
+            <td class="name">黄金<em>Gold</em></td>
+            <td><span class="chip dn">↓ 可能先跌</span></td>
+            <td class="hide-sm"><span class="chip mx">↔ 随美元波动</span></td>
+            <td><span class="chip up">↑ 通常率先修复</span></td>
+            <td class="hide-sm">被当作"提款机"变现；现金需求消退后避险属性回归</td>
+          </tr>
+          <tr>
+            <td class="name">美债<em>US Treasury</em></td>
+            <td><span class="chip dn">↓ 可能被抛售</span></td>
+            <td class="hide-sm"><span class="chip mx">↔ 收益率剧震</span></td>
+            <td><span class="chip up">↑ 降息预期推动</span></td>
+            <td class="hide-sm">既是抵押品也是避险终点；短端被抛、长端被买的分化很常见</td>
+          </tr>
+          <tr>
+            <td class="name">美元现金<em>USD Cash</em></td>
+            <td><span class="chip up">↑ 需求飙升</span></td>
+            <td class="hide-sm"><span class="chip up">↑ 美元走强</span></td>
+            <td><span class="chip dn">↓ 需求回落</span></td>
+            <td class="hide-sm">结算货币与保证金的最终形态；危机中的"唯一硬通货"</td>
+          </tr>
+          <tr>
+            <td class="name">山寨 / 长尾<em>Altcoins</em></td>
+            <td><span class="chip dn">↓ 跌幅最深</span></td>
+            <td class="hide-sm"><span class="chip dn">↓ 流动性枯竭</span></td>
+            <td><span class="chip mx">↔ 严重分化</span></td>
+            <td class="hide-sm">深度最差、最先被抛弃；多数标的在第二阶段不会回来</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 两阶段 ================= -->
+<section id="phases">
+  <div class="wrap">
+    <div class="eyebrow reveal">05 / Two Phases</div>
+    <h2 class="title reveal" data-d="1">把危机切成<em>两段</em>来看</h2>
+    <p class="lede reveal" data-d="2">
+      同一个宏观事件，在两个阶段的<strong>最优动作几乎是相反的</strong>。
+      把这两段混为一谈，是大多数人亏钱的根本原因。
+    </p>
+
+    <div class="phase-switch reveal" data-d="2">
+      <button class="phase-tab on" data-phase="0">
+        <div class="pt-n">Phase 01</div>
+        <div class="pt-t">现金为王</div>
+      </button>
+      <button class="phase-tab" data-phase="1">
+        <div class="pt-n">Phase 02</div>
+        <div class="pt-t">流动性重新释放</div>
+      </button>
+    </div>
+
+    <div class="phase-panel reveal" data-d="3" id="phasePanel">
+      <div id="phaseContent"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 延展 ================= -->
+<section id="extend" style="padding-top:0">
+  <div class="wrap">
+    <div class="eyebrow reveal">06 / Extensions</div>
+    <h2 class="title reveal" data-d="1">加密与美股：<em>同一台机器的两个接口</em></h2>
+    <p class="lede reveal" data-d="2">
+      加密市场不是"另一个世界"，它是同一条流动性链路的<strong>高杠杆、高透明度、无熔断版本</strong>。
+      美股也不是"更安全的世界"，它只是把清算压力藏进了回购市场和做市商库存里。
+    </p>
+
+    <div class="ext-grid">
+      <div class="card ext-card reveal" data-d="2">
+        <div class="ext-head">
+          <div class="ext-ico">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M9.5 8.5h4a2 2 0 0 1 0 4h-3a2 2 0 0 0 0 4h4"/></svg>
+          </div>
+          <div>
+            <div class="ext-title">加密市场</div>
+            <div class="ext-sub">Leverage · 24/7 · Thin Depth</div>
+          </div>
+        </div>
+        <div class="ext-body">
+          <div class="ext-row"><div class="dot"></div><div class="txt">
+            <b>永续合约资金费率是关键体温计。</b>极端负费率意味着多头被清洗、空头拥挤付费；
+            它往往是阶段一末期的信号，而不一定是继续下跌的理由。
+          </div></div>
+          <div class="ext-row"><div class="dot"></div><div class="txt">
+            <b>清算瀑布（Liquidation Cascade）。</b>强平引擎以市价单砸向薄深度订单簿，
+            打穿下一档清算价，触发下一批强平。<i>这本质上是第 05 步的自动化版本。</i>
+          </div></div>
+          <div class="ext-row"><div class="dot"></div><div class="txt">
+            <b>链上借贷的 LTV 与预言机。</b>Aave / Compound 的清算阈值由预言机价格驱动，
+            价格更新即清算时点——<b>没有T+1，没有协商，没有例外</b>。
+          </div></div>
+          <div class="ext-row"><div class="dot"></div><div class="txt">
+            <b>稳定币是加密的"货币基金"。</b>USDT / USDC 的场外溢价、短暂脱锚，
+            直接反映链上美元需求的紧张程度；赎回通道就是它的"赎回门"。
+          </div></div>
+          <div class="ext-row"><div class="dot"></div><div class="txt">
+            <b>现货 ETF 是传导管道。</b>申赎与做市商套利把美股时段的流动性约束
+            <b>物理性地</b>接入 BTC 定价；闭市时段则出现流动性真空。
+          </div></div>
+          <div class="ext-row"><div class="dot"></div><div class="txt">
+            <b>相关性会突然趋近于 1。</b>危机中 BTC 与纳指的滚动相关性飙升，
+            "数字黄金"叙事在强制平仓面前暂时失效——不是叙事错了，是时间尺度错了。
+          </div></div>
+        </div>
+      </div>
+
+      <div class="card ext-card reveal" data-d="3">
+        <div class="ext-head">
+          <div class="ext-ico">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 17l5-6 4 4 3-4 6 7"/><path d="M3 21h18"/></svg>
+          </div>
+          <div>
+            <div class="ext-title">美股市场</div>
+            <div class="ext-sub">Repo · Dealer Inventory · Vol Targeting</div>
+          </div>
+        </div>
+        <div class="ext-body">
+          <div class="ext-row"><div class="dot"></div><div class="txt">
+            <b>裂缝最先出现在回购市场。</b>SOFR 相对准备金利率的利差走阔、月末季末的融资挤兑，
+            是流动性收紧最早的物证——比股价早得多。
+          </div></div>
+          <div class="ext-row"><div class="dot"></div><div class="txt">
+            <b>做市商库存决定"跌多深"。</b>危机中交易商收缩资产负债表，
+            报价深度变薄，同样的卖单打出的价格冲击成倍放大。
+          </div></div>
+          <div class="ext-row"><div class="dot"></div><div class="txt">
+            <b>机械卖盘没有观点。</b>波动率目标基金、风险平价、CTA 按规则降仓——
+            它们不看基本面，只看波动率与趋势。<i>波动上升 → 仓位下降 → 波动上升。</i>
+          </div></div>
+          <div class="ext-row"><div class="dot"></div><div class="txt">
+            <b>期权 Gamma 的反身性。</b>做市商在下跌中为对冲而卖出，
+            把单边行情放大成"越跌越急"的尾段。
+          </div></div>
+          <div class="ext-row"><div class="dot"></div><div class="txt">
+            <b>融资余额（Margin Debt）是去杠杆的体温计。</b>它的快速回落，
+            往往对应阶段一的尾声，而不是开始。
+          </div></div>
+          <div class="ext-row"><div class="dot"></div><div class="txt">
+            <b>先被卖的常常是"最好的"。</b>低波动、高股息、超大市值——因为只有它们卖得掉。
+            <b>流动性溢价在危机中反向定价。</b>
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 仪表盘 ================= -->
+<section id="monitor" style="padding-top:0">
+  <div class="wrap">
+    <div class="eyebrow reveal">07 / Dashboard</div>
+    <h2 class="title reveal" data-d="1">现在处在<em>哪一段</em>？</h2>
+    <p class="lede reveal" data-d="2">
+      判断阶段不靠预测，靠观察。以下六类指标分别对应"融资端、汇率端、波动端、杠杆端、加密端、避险端"——
+      它们同时恶化时才叫流动性危机，单独一个只是噪音。
+    </p>
+
+    <div class="mon-grid">
+      <div class="mon reveal" data-d="1">
+        <div class="mon-k"><span>SOFR − IORB</span><span>融资端</span></div>
+        <div class="mon-v">+14<u>bp</u></div>
+        <div class="mon-d">回购资金价格相对准备金利率的溢价。<b>持续为正且走阔</b>意味着银行体系准备金偏紧。</div>
+        <svg class="mon-spark" viewBox="0 0 240 44" preserveAspectRatio="none"><path d="M0,36 L30,34 L60,35 L90,28 L120,30 L150,22 L180,18 L210,12 L240,6"/></svg>
+      </div>
+      <div class="mon reveal" data-d="2">
+        <div class="mon-k"><span>DXY</span><span>汇率端</span></div>
+        <div class="mon-v">108.9<u>idx</u></div>
+        <div class="mon-d">危机初期美元通常走强，因为全球负债以美元计价。<b>美元急涨=全球美元荒</b>。</div>
+        <svg class="mon-spark" viewBox="0 0 240 44" preserveAspectRatio="none"><path d="M0,30 L30,32 L60,26 L90,28 L120,20 L150,22 L180,14 L210,8 L240,4"/></svg>
+      </div>
+      <div class="mon reveal" data-d="3">
+        <div class="mon-k"><span>VIX</span><span>波动端</span></div>
+        <div class="mon-v">32.4<u>pt</u></div>
+        <div class="mon-d">越过 30 后，波动率目标策略进入<b>被动减仓区</b>，卖压与波动互相催生。</div>
+        <svg class="mon-spark" viewBox="0 0 240 44" preserveAspectRatio="none"><path d="M0,38 L30,36 L60,34 L90,24 L120,28 L150,16 L180,20 L210,10 L240,6"/></svg>
+      </div>
+      <div class="mon reveal" data-d="4">
+        <div class="mon-k"><span>BTC 永续资金费率</span><span>杠杆端</span></div>
+        <div class="mon-v">−0.028<u>%</u></div>
+        <div class="mon-d">负值代表空头向多头付费。<b>深度负费率</b>常出现在多头被清洗之后，是情绪极值的坐标。</div>
+        <svg class="mon-spark" viewBox="0 0 240 44" preserveAspectRatio="none"><path d="M0,8 L30,12 L60,10 L90,18 L120,16 L150,26 L180,24 L210,34 L240,38"/></svg>
+      </div>
+      <div class="mon reveal" data-d="1">
+        <div class="mon-k"><span>USDT 场外溢价</span><span>加密端</span></div>
+        <div class="mon-v">+1.2<u>%</u></div>
+        <div class="mon-d">场外美元稳定币的溢价，反映新兴市场与链上的<b>美元需求外溢</b>，是美元荒的草根读数。</div>
+        <svg class="mon-spark" viewBox="0 0 240 44" preserveAspectRatio="none"><path d="M0,34 L30,32 L60,34 L90,30 L120,26 L150,28 L180,20 L210,16 L240,10"/></svg>
+      </div>
+      <div class="mon reveal" data-d="2">
+        <div class="mon-k"><span>10Y 美债收益率</span><span>避险端</span></div>
+        <div class="mon-v">4.38<u>%</u></div>
+        <div class="mon-d">被抛售补保证金（上行）与避险买盘（下行）的<b>拉锯读数</b>；方向本身就是信息。</div>
+        <svg class="mon-spark" viewBox="0 0 240 44" preserveAspectRatio="none"><path d="M0,20 L30,16 L60,22 L90,18 L120,26 L150,22 L180,28 L210,24 L240,30"/></svg>
+      </div>
+      <div class="mon reveal" data-d="3">
+        <div class="mon-k"><span>美股融资余额</span><span>杠杆端</span></div>
+        <div class="mon-v">−6.8<u>% MoM</u></div>
+        <div class="mon-d">Margin Debt 环比快速回落，意味着杠杆已被强制出清。<b>它常是阶段一尾声的证据</b>。</div>
+        <svg class="mon-spark" viewBox="0 0 240 44" preserveAspectRatio="none"><path d="M0,6 L30,10 L60,8 L90,16 L120,20 L150,18 L180,28 L210,32 L240,36"/></svg>
+      </div>
+      <div class="mon reveal" data-d="4">
+        <div class="mon-k"><span>黄金 / 标普比价</span><span>避险端</span></div>
+        <div class="mon-v">0.86<u>ratio</u></div>
+        <div class="mon-d">危机初期比价往往先跌（黄金被变现），<b>比价止跌回升</b>常对应风险偏好最差的时点已过。</div>
+        <svg class="mon-spark" viewBox="0 0 240 44" preserveAspectRatio="none"><path d="M0,10 L30,16 L60,14 L90,22 L120,20 L150,26 L180,22 L210,14 L240,8"/></svg>
+      </div>
+    </div>
+    <p class="mon-note reveal" data-d="2">
+      ※ 以上为示意数值，用于说明指标的观察方式与方向逻辑，不代表任何实时行情或投资建议。
+    </p>
+  </div>
+</section>
+
+<!-- ================= 框架 ================= -->
+<section id="framework">
+  <div class="wrap">
+    <div class="eyebrow reveal">08 / Framework</div>
+    <h2 class="title reveal" data-d="1">先分清是<em>哪一种</em>下跌</h2>
+    <p class="lede reveal" data-d="2">
+      这是整篇文章唯一真正需要背下来的部分。<strong>基本面恶化</strong>与<strong>流动性冲击</strong>
+      在价格图表上长得几乎一样，但在资产负债表上完全是两件事。
+    </p>
+
+    <div class="fw-grid">
+      <div class="fw bad reveal" data-d="2">
+        <div class="fw-h">资产基本面恶化</div>
+        <div class="fw-sub">Value Destruction</div>
+        <ul>
+          <li><span class="mk">×</span><span><b>现金流与盈利预期下修</b>，且下修是不可逆的结构性变化，而非周期性波动。</span></li>
+          <li><span class="mk">×</span><span><b>竞争地位 / 行业格局长期受损</b>：技术替代、监管转向、份额流失。</span></li>
+          <li><span class="mk">×</span><span><b>信用资质恶化</b>：信用利差持续走阔并伴随评级下调、融资成本抬升。</span></li>
+          <li><span class="mk">×</span><span><b>估值锚永久上移</b>：无风险利率或风险溢价的中枢被重新定价。</span></li>
+          <li><span class="mk">×</span><span><b>下跌是"分化"的</b>：同一板块内优劣资产走势出现明显分叉。</span></li>
+        </ul>
+        <div class="fw-foot">结论：这里卖出是正确的动作。反弹也不是买点，因为价格终将向新的基本面收敛。</div>
+      </div>
+
+      <div class="fw ok reveal" data-d="3">
+        <div class="fw-h">短期流动性冲击</div>
+        <div class="fw-sub">Price Dislocation</div>
+        <ul>
+          <li><span class="mk">✓</span><span><b>基本面数据没有变化</b>：盈利、订单、现金流指引依旧，只是价格在动。</span></li>
+          <li><span class="mk">✓</span><span><b>所有资产同向下跌</b>：股票、债券、黄金、加密相关性骤升——这是流动性事件的指纹。</span></li>
+          <li><span class="mk">✓</span><span><b>融资端指标异常</b>：回购利差、haircut、信用利差同步恶化，但企业层面无实质违约。</span></li>
+          <li><span class="mk">✓</span><span><b>被卖的是"最好的"</b>：抛售集中在流动性最好的资产上，而非基本面最差的。</span></li>
+          <li><span class="mk">✓</span><span><b>波动率与成交量同步爆炸</b>：价格冲击的幅度远超信息含量。</span></li>
+        </ul>
+        <div class="fw-foot">结论：这可能是错杀。但前提是——你没有杠杆、有现金、能活到第二阶段。否则正确的判断也救不了你。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 引用 ================= -->
+<section class="quote-sec">
+  <div class="wrap">
+    <span class="quote-mark reveal">“</span>
+    <blockquote class="reveal" data-d="1">
+      流动性危机中，资产可以因为<em>缺钱</em>而下跌，而不是因为资产本身<em>变差</em>而下跌。
+    </blockquote>
+    <div class="quote-by reveal" data-d="2">Author · 911</div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <div>
+        <div class="foot-lbl">Written &amp; Designed by</div>
+        <div class="foot-author">911</div>
+      </div>
+      <div class="foot-meta">
+        流动性系列 · 第一篇<br />
+        追加保证金 → 跨资产抛售 → 连锁清算<br />
+        本文为逻辑推演与教学示例，不构成任何投资建议。
+      </div>
+    </div>
+    <div class="foot-div"></div>
+    <div class="foot-bottom">
+      <span>Liquidity · Margin Call · Cross-Asset</span>
+      <span>© 911 — All views are personal</span>
+    </div>
+  </div>
+</footer>
+<script>
+(function(){
+  'use strict';
+  const $ = (s,c)=> (c||document).querySelector(s);
+  const $$ = (s,c)=> Array.from((c||document).querySelectorAll(s));
+  const REDUCE = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- 1. Hero 金色流场 ---------- */
+  const cvs = $('#field');
+  if(cvs){
+    const ctx = cvs.getContext('2d');
+    let W = 0, H = 0, DPR = 1, particles = [], tt = 0, visible = true;
+
+    function field(x, y, t){
+      const a = Math.sin(x*0.0016 + t*0.22);
+      const b = Math.cos(y*0.0019 - t*0.17);
+      const c = Math.sin((x + y)*0.0011 + t*0.11);
+      return (a*b + c*0.75) * Math.PI * 1.9;
+    }
+    function spawn(){
+      return {
+        x: Math.random()*W, y: Math.random()*H,
+        px: 0, py: 0,
+        life: Math.random()*260,
+        max: 180 + Math.random()*300,
+        sp: 0.45 + Math.random()*0.95,
+        w: 0.4 + Math.random()*0.9
+      };
+    }
+    function resize(){
+      DPR = Math.min(window.devicePixelRatio || 1, 2);
+      const r = cvs.parentElement.getBoundingClientRect();
+      W = Math.max(1, Math.round(r.width));
+      H = Math.max(1, Math.round(r.height));
+      cvs.width = W*DPR; cvs.height = H*DPR;
+      cvs.style.width = W+'px'; cvs.style.height = H+'px';
+      ctx.setTransform(DPR,0,0,DPR,0,0);
+      ctx.fillStyle = '#0a0806';
+      ctx.fillRect(0,0,W,H);
+      const n = Math.min(400, Math.max(110, Math.round(W*H/5200)));
+      particles = new Array(n).fill(0).map(spawn);
+    }
+    function frame(){
+      requestAnimationFrame(frame);
+      if(!visible || REDUCE) return;
+      tt += 0.0055;
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(10,8,6,0.075)';
+      ctx.fillRect(0,0,W,H);
+      ctx.globalCompositeOperation = 'lighter';
+      for(let i=0;i<particles.length;i++){
+        const p = particles[i];
+        const ang = field(p.x, p.y, tt);
+        p.px = p.x; p.py = p.y;
+        p.x += Math.cos(ang) * p.sp * 1.6;
+        p.y += Math.sin(ang) * p.sp * 1.6;
+        p.life++;
+        if(p.life > p.max || p.x < -30 || p.x > W+30 || p.y < -30 || p.y > H+30){
+          const q = spawn();
+          Object.assign(p, q);
+          continue;
+        }
+        const a = Math.sin((p.life/p.max) * Math.PI) * 0.46;
+        ctx.strokeStyle = 'rgba(226,192,116,' + a.toFixed(3) + ')';
+        ctx.lineWidth = p.w;
+        ctx.beginPath();
+        ctx.moveTo(p.px, p.py);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+      }
+    }
+    resize();
+    frame();
+    let rt;
+    window.addEventListener('resize', ()=>{ clearTimeout(rt); rt = setTimeout(resize, 180); });
+    if('IntersectionObserver' in window){
+      new IntersectionObserver(es=>{ visible = es[0].isIntersecting; },{threshold:0.02})
+        .observe($('.hero'));
+    }
+  }
+
+  /* ---------- 2. 鼠标金晕 ---------- */
+  const glow = $('#glow');
+  let gx = 0, gy = 0, cx = 0, cy = 0, gloop = false;
+  if(glow && window.matchMedia('(hover:hover)').matches){
+    window.addEventListener('mousemove', e=>{ gx = e.clientX; gy = e.clientY; if(!gloop){ gloop = true; requestAnimationFrame(gstep); } }, {passive:true});
+    function gstep(){
+      cx += (gx-cx)*0.09; cy += (gy-cy)*0.09;
+      glow.style.transform = 'translate(' + cx + 'px,' + cy + 'px) translate(-50%,-50%)';
+      if(Math.abs(gx-cx) > 0.4 || Math.abs(gy-cy) > 0.4){ requestAnimationFrame(gstep); }
+      else { gloop = false; }
+    }
+  }
+
+  /* ---------- 3. 进度条 & 导航 ---------- */
+  const nav = $('#nav'), prog = $('#progress');
+  function onScroll(){
+    const y = window.scrollY || document.documentElement.scrollTop;
+    const h = document.documentElement.scrollHeight - window.innerHeight;
+    if(prog) prog.style.width = (h>0 ? Math.min(100, y/h*100) : 0) + '%';
+    if(nav) nav.classList.toggle('solid', y > 60);
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+  onScroll();
+
+  /* ---------- 4. 入场动画 ---------- */
+  const io = new IntersectionObserver(entries=>{
+    entries.forEach(en=>{
+      if(!en.isIntersecting) return;
+      const el = en.target;
+      el.classList.add('in');
+      if(el.classList.contains('mon')){
+        const p = el.querySelector('.mon-spark path');
+        if(p){
+          const len = p.getTotalLength();
+          p.style.strokeDasharray = len;
+          p.style.strokeDashoffset = len;
+          requestAnimationFrame(()=>{ p.style.strokeDashoffset = 0; });
+        }
+      }
+      if(el.id === 'balanceBars'){
+        $$('.bal-fill', el).forEach((f,i)=>{
+          setTimeout(()=>{ f.style.width = f.dataset.w + '%'; }, i*130);
+        });
+      }
+      io.unobserve(el);
+    });
+  }, {threshold:0.14, rootMargin:'0px 0px -6% 0px'});
+  $$('.reveal').forEach(el=>io.observe(el));
+  const bb = $('#balanceBars');
+  if(bb) io.observe(bb);
+
+  /* ---------- 5. 数字滚动 ---------- */
+  function countUp(el){
+    const target = parseFloat(el.dataset.count) || 0;
+    const dur = 1500, st = performance.now();
+    (function step(now){
+      const p = Math.min(1, (now-st)/dur);
+      const e = 1 - Math.pow(1-p, 3);
+      el.textContent = Math.round(target*e);
+      if(p < 1) requestAnimationFrame(step);
+      else el.textContent = target;
+    })(st);
+  }
+  setTimeout(()=>{ $$('[data-count]').forEach(countUp); }, 900);
+
+  /* ---------- 6. 追保模拟器 ---------- */
+  const ORDER = ['btc','us','bond','gold'];
+  const rows = ORDER.map(k=> $('.asset-row[data-key="'+k+'"]')).filter(Boolean);
+  const hInput = $('#haircut');
+  const hVal = $('#hVal'), needVal = $('#needVal'), needCalc = $('#needCalc'), needPct = $('#needPct');
+  const logBox = $('#simLog');
+  const GAP = 30, TOTAL = 100, MAXV = 50;
+  let cascadeRaf = null;
+
+  function buildLog(){
+    if(!logBox) return;
+    logBox.innerHTML = '';
+    ORDER.forEach(k=>{
+      const d = document.createElement('div');
+      d.dataset.k = k;
+      logBox.appendChild(d);
+    });
+  }
+  buildLog();
+
+  function render(h, silent){
+    const keep = Math.max(0.01, 1 - h/100);
+    let remain = GAP;
+    const logLines = [];
+    rows.forEach((row, idx)=>{
+      const k = ORDER[idx];
+      const v = parseFloat(row.dataset.v);
+      const fill = row.querySelector('.fill');
+      const sold = row.querySelector('.sold');
+      const tag = row.querySelector('.sold-tag');
+      const amt = row.querySelector('.asset-amt');
+      const w = (v/MAXV)*100;
+      fill.style.width = w + '%';
+
+      let sellBook = 0;
+      if(remain > 0.001){
+        sellBook = Math.min(v, remain/keep);
+        remain -= sellBook*keep;
+        if(remain < 0.001) remain = 0;
+      }
+      const ratio = sellBook / v;
+      sold.style.width = (w*ratio) + '%';
+      sold.classList.toggle('on', ratio > 0.001);
+      tag.classList.toggle('on', ratio > 0.001);
+      tag.textContent = ratio > 0.999 ? 'Fully Sold' : (ratio > 0.001 ? Math.round(ratio*100)+'% Sold' : '');
+      amt.textContent = ratio > 0.001
+        ? '$' + (v - sellBook).toFixed(1) + 'M'
+        : '$' + v.toFixed(0) + 'M';
+      amt.style.color = ratio > 0.001 ? 'var(--warn)' : '';
+
+      logLines.push(ratio > 0.001
+        ? k.toUpperCase() + ' · 卖出 $' + sellBook.toFixed(1) + 'M → 回收 $' + (sellBook*keep).toFixed(1) + 'M'
+        : k.toUpperCase() + ' · 保留');
+    });
+
+    const needBook = GAP/keep;
+    const hShow = Math.round(h);
+    hVal.textContent = hShow + '%';
+    needVal.textContent = '$' + needBook.toFixed(1) + 'M';
+    needCalc.textContent = '$' + needBook.toFixed(1) + 'M';
+    needPct.textContent = Math.round(needBook/TOTAL*100) + '%';
+    needVal.classList.toggle('hot', needBook > 55);
+
+    if(!silent){
+      $$('div', logBox).forEach((d,i)=>{
+        d.textContent = '> ' + logLines[i];
+        if(!d.dataset.done){ d.dataset.done = '1'; d.style.animationDelay = (i*70)+'ms'; }
+      });
+    }
+  }
+
+  function stopCascade(){
+    if(cascadeRaf){ cancelAnimationFrame(cascadeRaf); cascadeRaf = null; }
+  }
+
+  if(hInput){
+    hInput.addEventListener('input', ()=>{ stopCascade(); render(parseFloat(hInput.value)); });
+    render(0, true);
+    // 初始日志
+    setTimeout(()=>render(0), 300);
+  }
+
+  const btnC = $('#btnCascade'), btnR = $('#btnReset');
+  if(btnC){
+    btnC.addEventListener('click', ()=>{
+      stopCascade();
+      const from = parseFloat(hInput.value);
+      const to = 58;
+      const dur = 4200;
+      const st = performance.now();
+      if(from >= to - 0.5){ hInput.value = 0; render(0); return; }
+      (function step(now){
+        const p = Math.min(1, (now-st)/dur);
+        const e = p<0.5 ? 2*p*p : 1 - Math.pow(-2*p+2,2)/2;
+        const val = from + (to-from)*e;
+        hInput.value = val.toFixed(0);
+        render(val);
+        if(p < 1){ cascadeRaf = requestAnimationFrame(step); }
+        else { cascadeRaf = null; }
+      })(st);
+    });
+  }
+  if(btnR){
+    btnR.addEventListener('click', ()=>{
+      stopCascade();
+      if(hInput){ hInput.value = 0; }
+      render(0);
+    });
+  }
+
+  /* ---------- 7. 两阶段 ---------- */
+  const PHASES = [
+    {
+      tag:'Phase 01',
+      t:'现金为王 · 卖出一切换流动性',
+      d:'流动性收紧、追保到期的阶段。此时市场的主导者不是「看多或看空的人」，而是「必须交出钱的人」。<b>价格由被迫卖出者定价，而不是由价值判断者定价。</b>这个阶段，任何"我觉得便宜了"的判断都没有意义，因为对手盘不是在估值，是在筹钱。',
+      items:[
+        {k:'核心诉求', v:'现金 · 而不是任何一种资产', cls:'gold'},
+        {k:'资产表现', v:'普遍下跌，跨资产相关性趋近 1', cls:'down'},
+        {k:'美元', v:'走强 · 全球美元融资需求推升', cls:'up'},
+        {k:'黄金', v:'可能先跌 · 被当作最快提款机', cls:'down'},
+        {k:'BTC', v:'跌幅放大 · 清算瀑布与深度枯竭', cls:'down'},
+        {k:'最优动作', v:'降杠杆、留现金、不接飞刀', cls:'gold'}
+      ]
+    },
+    {
+      tag:'Phase 02',
+      t:'流动性重新释放 · 风险资产先动',
+      d:'资金成本回落、融资环境改善、回购市场恢复正常。第一批上涨的往往不是「最优质的资产」，而是<b>此前跌得最多、流动性最好、空头最拥挤的资产</b>——因为它们是杠杆回补与空头平仓的第一选择。这个阶段，<b>仓位比选股更重要</b>。',
+      items:[
+        {k:'核心诉求', v:'久期 · 风险敞口 · 弹性', cls:'gold'},
+        {k:'资产表现', v:'风险资产率先反弹，随后扩散', cls:'up'},
+        {k:'美元', v:'走弱 · 融资需求消退', cls:'down'},
+        {k:'黄金', v:'避险属性回归，常同步走强', cls:'up'},
+        {k:'BTC', v:'高 Beta 修复，但内部分化加剧', cls:'up'},
+        {k:'最优动作', v:'分批介入，区分「错杀」与「该杀」', cls:'gold'}
+      ]
+    }
+  ];
+  const tabs = $$('.phase-tab');
+  const pc = $('#phaseContent');
+  function setPhase(i){
+    tabs.forEach((t,j)=>t.classList.toggle('on', i===j));
+    if(!pc) return;
+    const p = PHASES[i];
+    pc.innerHTML =
+      '<div class="pp-title">' + p.t + '</div>' +
+      '<p class="pp-desc">' + p.d + '</p>' +
+      '<div class="pp-grid">' + p.items.map(it=>
+        '<div class="pp-item"><div class="k">' + it.k + '</div><div class="v ' + it.cls + '">' + it.v + '</div></div>'
+      ).join('') + '</div>';
+    pc.classList.remove('fade-swap');
+    void pc.offsetWidth;
+    pc.classList.add('fade-swap');
+  }
+  tabs.forEach((t,i)=> t.addEventListener('click', ()=>setPhase(i)));
+  setPhase(0);
+})();
+</script>
+</body>
+</html>
